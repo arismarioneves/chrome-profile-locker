@@ -39,8 +39,20 @@ class ChromeProfileLocker:
         self.profiles, self.chrome_path = get_chrome_profiles()
         self.passwords = load_passwords()
 
+        self.create_menu()
         self.create_header()
         self.create_widgets()
+
+    def create_menu(self):
+        menu_bar = tk.Menu(self.root)
+        self.root.config(menu=menu_bar)
+
+        help_menu = tk.Menu(menu_bar, tearoff=0)
+        menu_bar.add_cascade(label="Ajuda", menu=help_menu)
+        help_menu.add_command(label="Sobre", command=self.show_about)
+
+    def show_about(self):
+        messagebox.showinfo("Sobre", "Chrome Profile Locker\nVersão 1.0\nGerencie e proteja seus perfis do Chrome com facilidade.")
 
     def create_header(self):
         header_frame = tk.Frame(self.root, bg='#f9f9f9')
@@ -53,7 +65,7 @@ class ChromeProfileLocker:
         subtitle_label.pack(side="left", padx=10)
 
         logo_image = Image.open('app_logo.png')
-        logo_image = logo_image.resize((50, 50), Image.ANTIALIAS)
+        logo_image = logo_image.resize((50, 50), Image.LANCZOS)
         logo_photo = ImageTk.PhotoImage(logo_image)
 
         logo_label = tk.Label(header_frame, image=logo_photo, bg='#f9f9f9')
@@ -61,9 +73,12 @@ class ChromeProfileLocker:
         logo_label.pack(side="right", padx=10)
 
     def create_widgets(self):
+        profiles_frame = tk.Frame(self.root, bg='#f9f9f9')
+        profiles_frame.pack(padx=10, pady=10)
+
         row, col = 0, 0
         for profile, info in self.profiles.items():
-            frame = tk.Frame(self.root, relief=tk.RAISED, borderwidth=1, bg='#f9f9f9')
+            frame = tk.Frame(profiles_frame, relief=tk.RAISED, borderwidth=1, bg='#f9f9f9')
             frame.grid(row=row, column=col, padx=10, pady=10, ipadx=10, ipady=10)
 
             image_path = os.path.join(self.chrome_path, profile, "Google Profile Picture.png")
@@ -71,7 +86,7 @@ class ChromeProfileLocker:
                 image_path = "default_profile.png"
 
             profile_image = Image.open(image_path)
-            profile_image = profile_image.resize((100, 100), Image.ANTIALIAS)
+            profile_image = profile_image.resize((100, 100), Image.LANCZOS)
             profile_photo = ImageTk.PhotoImage(profile_image)
 
             profile_image_label = tk.Label(frame, image=profile_photo, bg='#f9f9f9')
@@ -116,7 +131,7 @@ class ChromeProfileLocker:
 
     def update_widgets(self):
         for widget in self.root.winfo_children():
-            if isinstance(widget, tk.Frame) and widget is not self.root.winfo_children()[0]: # Ignorando o frame do título
+            if isinstance(widget, tk.Frame) and widget is not self.root.winfo_children()[0]: # Ignorar o frame do cabeçalho
                 widget.destroy()
         self.create_widgets()
 
