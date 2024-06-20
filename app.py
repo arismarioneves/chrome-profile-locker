@@ -16,10 +16,17 @@ def get_chrome_profiles():
     profiles = local_state['profile']['info_cache']
     return profiles
 
-# Testando a função
-profiles = get_chrome_profiles()
-for profile in profiles:
-    print(profile, profiles[profile]['name'])
+password_file = "profile_passwords.json"
+
+def load_passwords():
+    if os.path.exists(password_file):
+        with open(password_file, 'r', encoding='utf-8') as file:
+            return json.load(file)
+    return {}
+
+def save_passwords(passwords):
+    with open(password_file, 'w', encoding='utf-8') as file:
+        json.dump(passwords, file)
 
 class ChromeProfileLocker:
     def __init__(self, root):
@@ -27,6 +34,7 @@ class ChromeProfileLocker:
         self.root.title("Chrome Profile Locker")
 
         self.profiles = get_chrome_profiles()
+        self.passwords = load_passwords()
         self.create_widgets()
 
     def create_widgets(self):
@@ -46,14 +54,16 @@ class ChromeProfileLocker:
     def lock_profile(self, profile):
         password = tk.simpledialog.askstring("Senha", "Digite a senha para bloquear o perfil:", show='*')
         if password:
-            # Implementar lógica de bloqueio com senha
+            self.passwords[profile] = password
+            save_passwords(self.passwords)
             messagebox.showinfo("Info", f"Perfil {self.profiles[profile]['name']} bloqueado.")
 
     def unlock_profile(self, profile):
         password = tk.simpledialog.askstring("Senha", "Digite a senha para desbloquear o perfil:", show='*')
-        if password:
-            # Implementar lógica de desbloqueio com senha
+        if password == self.passwords.get(profile):
             messagebox.showinfo("Info", f"Perfil {self.profiles[profile]['name']} desbloqueado.")
+        else:
+            messagebox.showerror("Erro", "Senha incorreta.")
 
 # Criando a aplicação
 root = tk.Tk()
