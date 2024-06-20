@@ -2,6 +2,7 @@ import os
 import json
 import tkinter as tk
 from tkinter import messagebox, simpledialog
+from PIL import Image, ImageTk
 
 def get_chrome_profiles():
     # Caminho para a pasta do Chrome
@@ -14,7 +15,7 @@ def get_chrome_profiles():
 
     # Extraindo perfis
     profiles = local_state['profile']['info_cache']
-    return profiles
+    return profiles, chrome_path
 
 password_file = "profile_passwords.json"
 
@@ -33,23 +34,41 @@ class ChromeProfileLocker:
         self.root = root
         self.root.title("Chrome Profile Locker")
 
-        self.profiles = get_chrome_profiles()
+        self.profiles, self.chrome_path = get_chrome_profiles()
         self.passwords = load_passwords()
         self.create_widgets()
 
     def create_widgets(self):
+        row, col = 0, 0
         for profile, info in self.profiles.items():
-            frame = tk.Frame(self.root)
-            frame.pack(fill="x", padx=5, pady=5)
+            frame = tk.Frame(self.root, relief=tk.RAISED, borderwidth=1)
+            frame.grid(row=row, column=col, padx=10, pady=10, ipadx=10, ipady=10)
+
+            image_path = os.path.join(self.chrome_path, profile, "Google Profile Picture.png")
+            if not os.path.exists(image_path):
+                image_path = "default_profile.png"
+
+            profile_image = Image.open(image_path)
+            profile_image = profile_image.resize((100, 100), Image.ANTIALIAS)
+            profile_photo = ImageTk.PhotoImage(profile_image)
+
+            profile_image_label = tk.Label(frame, image=profile_photo)
+            profile_image_label.image = profile_photo # mantendo uma referência para evitar o garbage collector
+            profile_image_label.pack()
 
             profile_label = tk.Label(frame, text=info['name'])
-            profile_label.pack(side="left", padx=5, pady=5)
+            profile_label.pack(pady=(5, 10))
 
             lock_button = tk.Button(frame, text="Bloquear", command=lambda p=profile: self.lock_profile(p))
-            lock_button.pack(side="right", padx=5, pady=5)
+            lock_button.pack(side="left", padx=5, pady=5)
 
             unlock_button = tk.Button(frame, text="Desbloquear", command=lambda p=profile: self.unlock_profile(p))
             unlock_button.pack(side="right", padx=5, pady=5)
+
+            col += 1
+            if col == 4: # 4 perfis por linha
+                col = 0
+                row += 1
 
     def lock_profile(self, profile):
         password = tk.simpledialog.askstring("Senha", "Digite a senha para bloquear o perfil:", show='*')
