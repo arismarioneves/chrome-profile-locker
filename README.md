@@ -1,8 +1,21 @@
 # Chrome Profile Locker
 
-Chrome Profile Locker é um software para `Windows` que permite bloquear perfis do Google Chrome com senha. Este aplicativo lê os perfis do Chrome e exibe uma interface gráfica onde você pode bloquear e desbloquear perfis específicos.
+> 🛑 **ATENÇÃO:** Aplicação em desenvolvimento. Este software ainda não foi testado em diferentes sistemas operacionais e versões do Google Chrome, podendo apresentar problemas de compatibilidade e causar perda de dados.
+
+Chrome Profile Locker é um software que permite bloquear perfis do Google Chrome com senha. Este aplicativo lê os perfis do Chrome e exibe uma interface gráfica onde você pode bloquear e desbloquear perfis específicos.
 
 ![Chrome Profile Locker](https://github.com/arismarioneves/chrome-profile-locker/blob/main/screenshot.png)
+
+## Sistema Operacional
+
+- Windows (em desenvolvimento)
+- Linux (não implementado)
+- macOS (não implementado)
+
+## Google Chrome
+- Google Chrome (Versão 126.0.6478.114 (Versão oficial) 64 bits)
+
+  > A aplicação foi testado apenas na versão acima.
 
 ## Pré-requisitos
 
