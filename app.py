@@ -1,13 +1,22 @@
 import os
 import json
+import time
 import tkinter as tk
-from tkinter import messagebox, simpledialog
+from tkinter import messagebox, simpledialog, ttk
 from PIL import Image, ImageTk
+from datetime import datetime
+import hashlib
+import base64
+import shutil
 
 def get_chrome_profiles():
     # Caminho para a pasta do Chrome
     chrome_path = os.path.join(os.getenv('LOCALAPPDATA'), 'Google', 'Chrome', 'User Data')
     local_state_path = os.path.join(chrome_path, 'Local State')
+
+    # Fazendo backup do arquivo Local State
+    backup_path = f"{local_state_path}.BAK-{datetime.now().strftime('%Y%m%d')}"
+    shutil.copy(local_state_path, backup_path)
 
     # Lendo o arquivo 'Local State'
     with open(local_state_path, 'r', encoding='utf-8') as file:
@@ -15,9 +24,9 @@ def get_chrome_profiles():
 
     # Extraindo perfis
     profiles = local_state['profile']['info_cache']
-    return profiles, chrome_path
+    return profiles, chrome_path, local_state_path
 
-password_file = "profile_passwords.json"
+password_file = "profile_lock.json"
 
 def load_passwords():
     if os.path.exists(password_file):
@@ -29,14 +38,19 @@ def save_passwords(passwords):
     with open(password_file, 'w', encoding='utf-8') as file:
         json.dump(passwords, file)
 
+def encrypt_password(password):
+    return base64.b64encode(hashlib.sha256(password.encode()).digest()).decode()
+
 class ChromeProfileLocker:
     def __init__(self, root):
         self.root = root
         self.root.title("Chrome Profile Locker")
         self.root.iconbitmap('app_icon.ico')
+        self.root.geometry('750x570')
+        self.root.minsize(670, 530)
         self.root.configure(bg='#f9f9f9')
 
-        self.profiles, self.chrome_path = get_chrome_profiles()
+        self.profiles, self.chrome_path, self.local_state_path = get_chrome_profiles()
         self.passwords = load_passwords()
 
         self.create_menu()
@@ -76,6 +90,12 @@ class ChromeProfileLocker:
         profiles_frame = tk.Frame(self.root, bg='#f9f9f9')
         profiles_frame.pack(padx=10, pady=10)
 
+        # Verificar e criar a pasta Avatars se não existir
+        avatars_path = os.path.join(self.chrome_path, 'Avatars')
+        if not os.path.exists(avatars_path):
+            os.makedirs(avatars_path)
+            shutil.copy('avatar_soccer.png', avatars_path)
+
         row, col = 0, 0
         for profile, info in self.profiles.items():
             frame = tk.Frame(profiles_frame, relief=tk.RAISED, borderwidth=1, bg='#f9f9f9')
@@ -90,7 +110,7 @@ class ChromeProfileLocker:
             profile_photo = ImageTk.PhotoImage(profile_image)
 
             profile_image_label = tk.Label(frame, image=profile_photo, bg='#f9f9f9')
-            profile_image_label.image = profile_photo # mantendo uma referência para evitar o garbage collector
+            profile_image_label.image = profile_photo  # Referência para manter a imagem na memória
             profile_image_label.pack()
 
             profile_label = tk.Label(frame, text=info['name'], bg='#f9f9f9')
@@ -101,7 +121,7 @@ class ChromeProfileLocker:
             action_button.pack(pady=5)
 
             col += 1
-            if col == 4: # 4 perfis por linha
+            if col == 4:  # Número de perfis por linha
                 col = 0
                 row += 1
 
@@ -112,26 +132,44 @@ class ChromeProfileLocker:
             self.lock_profile(profile)
 
     def lock_profile(self, profile):
-        password = tk.simpledialog.askstring("Senha", "Digite a senha para bloquear o perfil:", show='*')
+        password = simpledialog.askstring("Senha", "Digite a senha para bloquear o perfil:", show='*')
         if password:
-            self.passwords[profile] = password
+            encrypted_password = encrypt_password(password)
+            self.passwords[profile] = encrypted_password
             save_passwords(self.passwords)
+            self.update_local_state(profile, lock=True)
             self.update_widgets()
             messagebox.showinfo("Info", f"Perfil {self.profiles[profile]['name']} bloqueado.")
 
     def unlock_profile(self, profile):
-        password = tk.simpledialog.askstring("Senha", "Digite a senha para desbloquear o perfil:", show='*')
-        if password == self.passwords.get(profile):
+        password = simpledialog.askstring("Senha", "Digite a senha para desbloquear o perfil:", show='*')
+        encrypted_password = encrypt_password(password)
+        if encrypted_password == self.passwords.get(profile):
             del self.passwords[profile]
             save_passwords(self.passwords)
+            self.update_local_state(profile, lock=False)
             self.update_widgets()
             messagebox.showinfo("Info", f"Perfil {self.profiles[profile]['name']} desbloqueado.")
         else:
             messagebox.showerror("Erro", "Senha incorreta.")
 
+    def update_local_state(self, profile, lock):
+        with open(self.local_state_path, 'r+', encoding='utf-8') as file:
+            local_state = json.load(file)
+            if lock:
+                local_state['profile']['info_cache'][profile]['avatar_icon'] = "chrome://theme/IDR_PROFILE_AVATAR_17"
+                os.rename(os.path.join(self.chrome_path, profile), os.path.join(self.chrome_path, f"{profile} - LOCK"))
+            else:
+                local_state['profile']['info_cache'][profile]['avatar_icon'] = "chrome://theme/IDR_PROFILE_AVATAR_26"
+                os.rename(os.path.join(self.chrome_path, f"{profile} - LOCK"), os.path.join(self.chrome_path, profile))
+
+            file.seek(0)
+            json.dump(local_state, file)
+            file.truncate()
+
     def update_widgets(self):
         for widget in self.root.winfo_children():
-            if isinstance(widget, tk.Frame) and widget is not self.root.winfo_children()[0]: # Ignorar o frame do cabeçalho
+            if isinstance(widget, tk.Frame) and widget is not self.root.winfo_children()[0]:  # Ignorar o frame do cabeçalho
                 widget.destroy()
         self.create_widgets()
 
