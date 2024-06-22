@@ -8,6 +8,7 @@ from datetime import datetime
 import hashlib
 import base64
 import shutil
+import psutil
 
 
 def get_chrome_profiles():
@@ -29,19 +30,32 @@ def get_chrome_profiles():
     return profiles, chrome_path, local_state_path
 
 
-password_file = "profile_lock.json"
+password_file = "cpl.json"
+APP_CODE = "CPL"
 
 
 def load_passwords():
     if os.path.exists(password_file):
         with open(password_file, 'r', encoding='utf-8') as file:
-            return json.load(file)
-    return {}
+            data = json.load(file)
+            if data.get("code") == APP_CODE:
+                return data.get("passwords", {})
+            else:
+                messagebox.showinfo("Info", "Código de aplicação inválido.")
+                exit()
+    else:
+        messagebox.showinfo(
+            "Info", "Arquivo de configuração não encontrado.")
+        exit()
 
 
 def save_passwords(passwords):
+    data = {
+        "code": APP_CODE,
+        "passwords": passwords
+    }
     with open(password_file, 'w', encoding='utf-8') as file:
-        json.dump(passwords, file)
+        json.dump(data, file)
 
 
 def encrypt_password(password):
@@ -52,9 +66,10 @@ class ChromeProfileLocker:
     def __init__(self, root):
         self.root = root
         self.root.title("Chrome Profile Locker")
-        self.root.iconbitmap('app_icon.ico')
+        self.root.iconbitmap(default='app_icon.ico')
         self.root.geometry('750x570')
         self.root.minsize(670, 530)
+        # self.root.resizable(False, False)
         self.root.configure(bg='#f9f9f9')
 
         self.profiles, self.chrome_path, self.local_state_path = get_chrome_profiles()
@@ -67,6 +82,10 @@ class ChromeProfileLocker:
     def create_menu(self):
         menu_bar = tk.Menu(self.root)
         self.root.config(menu=menu_bar)
+
+        config_menu = tk.Menu(menu_bar, tearoff=0)
+        menu_bar.add_cascade(label="Configurações", menu=config_menu)
+        config_menu.add_command(label="Sair", command=self.root.quit)
 
         help_menu = tk.Menu(menu_bar, tearoff=0)
         menu_bar.add_cascade(label="Ajuda", menu=help_menu)
@@ -104,7 +123,7 @@ class ChromeProfileLocker:
         avatars_path = os.path.join(self.chrome_path, 'Avatars')
         if not os.path.exists(avatars_path):
             os.makedirs(avatars_path)
-            shutil.copy('avatar_soccer.png', avatars_path)
+        shutil.copy('avatar_soccer.png', avatars_path)
 
         row, col = 0, 0
         for profile, info in self.profiles.items():
@@ -115,8 +134,11 @@ class ChromeProfileLocker:
 
             image_path = os.path.join(
                 self.chrome_path, profile, "Google Profile Picture.png")
+
             if not os.path.exists(image_path):
                 image_path = "default_profile.png"
+            if profile in self.passwords:
+                image_path = "avatar_soccer.png"
 
             profile_image = Image.open(image_path)
             profile_image = profile_image.resize((100, 100), Image.LANCZOS)
@@ -148,8 +170,13 @@ class ChromeProfileLocker:
             self.lock_profile(profile)
 
     def lock_profile(self, profile):
+        chrome_closed = self.close_chrome()
+        # Verifica se o Chrome está fechado (True: fechado, False: não fechado)
+        if not chrome_closed:
+            return
+
         password = simpledialog.askstring(
-            "Senha", "Digite a senha para bloquear o perfil:", show='*')
+            "Senha", "Digite a senha para bloquear o perfil:", show='*', parent=self.root)
         if password:
             encrypted_password = encrypt_password(password)
             self.passwords[profile] = encrypted_password
@@ -160,8 +187,13 @@ class ChromeProfileLocker:
                 "Info", f"Perfil {self.profiles[profile]['name']} bloqueado.")
 
     def unlock_profile(self, profile):
+        chrome_closed = self.close_chrome()
+        # Verifica se o Chrome está fechado (True: fechado, False: não fechado)
+        if not chrome_closed:
+            return
+
         password = simpledialog.askstring(
-            "Senha", "Digite a senha para desbloquear o perfil:", show='*')
+            "Senha", "Digite a senha para desbloquear o perfil:", show='*', parent=self.root)
         encrypted_password = encrypt_password(password)
         if encrypted_password == self.passwords.get(profile):
             del self.passwords[profile]
@@ -188,6 +220,20 @@ class ChromeProfileLocker:
             file.seek(0)
             json.dump(local_state, file)
             file.truncate()
+
+    def close_chrome(self):
+        for process in psutil.process_iter():
+            if process.name() == "chrome.exe":
+                messagebox.showinfo(
+                    "Info", "Feche o Google Chrome para continuar.")
+                return False
+        return True
+
+        #         process.terminate()
+        # gone, still_alive = psutil.wait_procs(
+        #     [p for p in psutil.process_iter() if p.name() == "chrome.exe"], timeout=3)
+        # for p in still_alive:
+        #     p.kill()
 
     def update_widgets(self):
         for widget in self.root.winfo_children():
