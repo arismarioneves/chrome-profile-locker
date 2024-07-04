@@ -9,6 +9,7 @@ import hashlib
 import base64
 import shutil
 import psutil
+import subprocess
 
 
 def get_chrome_profiles():
@@ -119,7 +120,7 @@ class ChromeProfileLocker:
         profiles_frame = tk.Frame(self.root, bg='#f9f9f9')
         profiles_frame.pack(padx=10, pady=10)
 
-        # Verificar e criar a pasta Avatars se não existir
+        # Verificar e criar a pasta Avatars se não existir, sobrescrever se existir
         avatars_path = os.path.join(self.chrome_path, 'Avatars')
         if not os.path.exists(avatars_path):
             os.makedirs(avatars_path)
@@ -208,14 +209,16 @@ class ChromeProfileLocker:
     def update_local_state(self, profile, lock):
         with open(self.local_state_path, 'r+', encoding='utf-8') as file:
             local_state = json.load(file)
+            profile_path = os.path.join(self.chrome_path, profile)
+            locked_profile_path = os.path.join(
+                self.chrome_path, f"{profile} - LOCK")
+
             if lock:
                 local_state['profile']['info_cache'][profile]['avatar_icon'] = "chrome://theme/IDR_PROFILE_AVATAR_17"
-                os.rename(os.path.join(self.chrome_path, profile),
-                          os.path.join(self.chrome_path, f"{profile} - LOCK"))
+                lock_profile_directory(profile_path, locked_profile_path)
             else:
+                unlock_profile_directory(profile_path, locked_profile_path)
                 local_state['profile']['info_cache'][profile]['avatar_icon'] = "chrome://theme/IDR_PROFILE_AVATAR_26"
-                os.rename(os.path.join(
-                    self.chrome_path, f"{profile} - LOCK"), os.path.join(self.chrome_path, profile))
 
             file.seek(0)
             json.dump(local_state, file)
@@ -243,7 +246,47 @@ class ChromeProfileLocker:
         self.create_widgets()
 
 
-# Criando a aplicação
-root = tk.Tk()
-app = ChromeProfileLocker(root)
-root.mainloop()
+def lock_profile_directory(profile_path, locked_profile_path):
+    # Renomear a pasta do perfil para nome + LOCK
+    os.rename(profile_path, locked_profile_path)
+
+    # Criar uma nova pasta com o nome original do perfil
+    os.makedirs(profile_path)
+
+    # Bloquear a nova pasta usando icacls
+    try:
+        # Tentar usar "Everyone"
+        result = subprocess.run(
+            ['icacls', profile_path, '/deny', 'Everyone:(F)'], capture_output=True, text=True)
+        if result.returncode != 0:
+            # Se falhar, tentar usar "Todos" (para sistemas em português)
+            subprocess.run(
+                ['icacls', profile_path, '/deny', 'Todos:(F)'], check=True)
+    except subprocess.CalledProcessError as e:
+        print(f"Erro ao bloquear a pasta: {e}")
+
+
+def unlock_profile_directory(profile_path, locked_profile_path):
+    # Desbloquear a pasta usando icacls
+    try:
+        # Tentar remover negação de "Everyone"
+        result = subprocess.run(
+            ['icacls', profile_path, '/remove:d', 'Everyone'], capture_output=True, text=True)
+        if result.returncode != 0:
+            # Se falhar, tentar remover negação de "Todos"
+            subprocess.run(
+                ['icacls', profile_path, '/remove:d', 'Todos'], check=True)
+    except subprocess.CalledProcessError as e:
+        print(f"Erro ao desbloquear a pasta: {e}")
+
+    # Remover a pasta vazia
+    os.rmdir(profile_path)
+
+    # Renomear a pasta do perfil de volta ao nome original
+    os.rename(locked_profile_path, profile_path)
+
+
+if __name__ == "__main__":
+    root = tk.Tk()
+    app = ChromeProfileLocker(root)
+    root.mainloop()
