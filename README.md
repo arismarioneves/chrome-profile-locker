@@ -13,7 +13,7 @@ Chrome Profile Locker é um software que permite bloquear perfis do Google Chrom
 - macOS (não implementado)
 
 ## Google Chrome
-- Google Chrome (Versão 126.0.6478.114 (Versão oficial) 64 bits)
+- Google Chrome (Versão 126.0.6478 (Versão oficial) 64 bits)
 
   > A aplicação foi testado apenas na versão acima.
 
@@ -21,6 +21,7 @@ Chrome Profile Locker é um software que permite bloquear perfis do Google Chrom
 
 - Python 3.x
 - Pillow (biblioteca de manipulação de imagens)
+- psutil (biblioteca de monitoramento de processos)
 - PyInstaller (para compilar o executável)
 
 ## Instalação
